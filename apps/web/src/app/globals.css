@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --race-primary: #22d3ee;
+    --race-accent: #a855f7;
+  }
+
+  * {
+    @apply border-white/5;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-void-950 text-ink antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34, 211, 238, 0.13), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 10%, rgba(168, 85, 247, 0.1), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-neon-cyan/30 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-void-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-void-500;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-void-600;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-neon-cyan/70 ring-offset-2 ring-offset-void-950;
+  }
+}
+
+@layer components {
+  /* Стеклянная карточка — базовый элемент дизайна */
+  .glass {
+    @apply relative rounded-2xl border border-white/[0.08] bg-void-800/60 backdrop-blur-xl;
+    box-shadow:
+      0 8px 40px -12px rgba(0, 0, 0, 0.85),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .glass-hover {
+    @apply transition-all duration-300 hover:border-white/[0.16] hover:bg-void-800/80;
+  }
+
+  .glass-hover:hover {
+    box-shadow:
+      0 16px 60px -16px rgba(0, 0, 0, 0.95),
+      0 0 0 1px rgba(34, 211, 238, 0.14),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  }
+
+  /* Неоновая кнопка */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-neon-cyan text-void-950 hover:bg-cyan-300;
+    box-shadow: 0 0 24px -6px rgba(34, 211, 238, 0.7);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 32px -4px rgba(34, 211, 238, 0.9);
+  }
+
+  .btn-secondary {
+    @apply btn border border-white/10 bg-void-700/70 text-ink hover:border-white/20 hover:bg-void-600/70;
+  }
+
+  .btn-danger {
+    @apply btn bg-rose-600/90 text-white hover:bg-rose-500;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-muted hover:bg-white/5 hover:text-ink;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-void-900/80 px-4 py-2.5 text-sm text-ink placeholder:text-ink-dim transition-colors focus:border-neon-cyan/60 focus:outline-none focus:ring-1 focus:ring-neon-cyan/40;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-muted;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Тонкая неоновая линия-разделитель */
+  .divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-neon-cyan via-white to-neon-violet bg-clip-text text-transparent;
+  }
+
+  /* Скелетон для загрузки */
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-void-600/60;
+  }
+
+  .stat-bar {
+    @apply relative h-2 overflow-hidden rounded-full bg-void-600;
+  }
+  .stat-bar-fill {
+    @apply absolute inset-y-0 left-0 rounded-full transition-all duration-700;
+    background: linear-gradient(90deg, var(--race-primary), var(--race-accent));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

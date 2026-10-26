@@ -1,0 +1,41 @@
+# AetherSMP — reverse-proxy с автоматическим HTTPS (Let's Encrypt).
+# Замените example.com на свой домен и направьте A-запись на IP сервера.
+
+{
+	# Укажите email для уведомлений Let's Encrypt
+	email admin@example.com
+}
+
+example.com, www.example.com {
+	encode zstd gzip
+
+	# Заголовки безопасности на уровне прокси
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# API — отдельный маршрут (можно ограничить лимитом запросов)
+	handle /api/* {
+		reverse_proxy api:4000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Всё остальное — Next.js
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+	}
+}

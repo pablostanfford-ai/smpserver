@@ -1,0 +1,221 @@
+// AetherSMP — Prisma schema
+// PostgreSQL 16. Все изменения — через `prisma migrate dev --name <name>`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER // полный доступ, единственная роль для админ-панели CMS
+  ADMIN // модерация + просмотр логов, без изменения ролей owner
+  MODERATOR // бан/мут, без CMS-настроек
+  PLAYER
+}
+
+enum UserStatus {
+  ACTIVE
+  MUTED
+  BANNED
+}
+
+enum AuditLevel {
+  INFO
+  WARN
+  ERROR
+  SECURITY
+}
+
+enum NotificationType {
+  SYSTEM
+  RACE
+  MODERATION
+  REWARD
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RACE — кастомные расы сервера (управляются через CMS)
+// ─────────────────────────────────────────────────────────────
+
+model Race {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  tagline     String   @default("")
+  description String   @db.Text // лор
+  lore        String   @db.Text @default("")
+
+  // Визуал
+  icon        String   @default("Sparkles") // имя иконки Lucide
+  bannerUrl   String? // внешний URL или /uploads/...
+  color       String   @default("#22d3ee") // основной неон расы, HEX
+  accentColor String   @default("#a855f7")
+
+  // Геймплей
+  difficulty  Int      @default(2) // 1..5
+  stats       Json     @default("{}") // { health, speed, damage, defense, mana, ... }
+  passives    Json     @default("[]") // [{ name, description }]
+  actives     Json     @default("[]") // [{ name, description, cooldown, key }]
+  strengths   Json     @default("[]") // string[]
+  weaknesses  Json     @default("[]") // string[]
+  playstyle   String   @default("")
+  recommended String   @default("")
+
+  isActive     Boolean @default(true) // видна на сайте
+  isSelectable Boolean @default(true) // можно выбрать при регистрации
+  sortOrder    Int     @default(0)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  USER — игрок / администратор
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  username     String  @unique // логин на сайте
+  passwordHash String
+
+  // Minecraft
+  mcName     String  @unique // ник в игре (проверен через Mojang)
+  mcUuid     String? @unique // UUID без дефисов
+  mcVerified Boolean @default(false)
+
+  role   Role       @default(PLAYER)
+  status UserStatus @default(ACTIVE)
+
+  // Персонаж
+  raceId       String?
+  race         Race?    @relation(fields: [raceId], references: [id], onDelete: SetNull)
+  raceChangedAt DateTime?
+  balance      Int     @default(0)
+  rank         String  @default("PLAYER")
+  playtimeMin  Int     @default(0)
+  kills        Int     @default(0)
+  deaths       Int     @default(0)
+
+  // Модерация
+  banReason   String?
+  bannedUntil DateTime?
+  muteReason  String?
+  mutedUntil  DateTime?
+
+  // Профиль
+  bio       String @db.Text @default("")
+  avatarUrl String?
+
+  sessions      Session[]
+  notifications Notification[]
+  activity      ActivityEvent[]
+  auditLogs     AuditLog[]      @relation("ActorLogs")
+  settings      Setting[]       @relation("SettingEditor")
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([raceId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SESSION — refresh-токены (ротация + отзыв)
+// ─────────────────────────────────────────────────────────────
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique // sha256(refreshToken)
+  userAgent        String    @default("")
+  ipHash           String    @default("")
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  AUDIT LOG — действия админов, входы, ошибки
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String     @id @default(cuid())
+  level      AuditLevel @default(INFO)
+  action     String // "auth.login", "race.update", "user.ban"
+  message    String
+  actorId    String?
+  actor      User?      @relation("ActorLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName  String     @default("system")
+  targetType String?
+  targetId   String?
+  meta       Json       @default("{}")
+  ipHash     String     @default("")
+  createdAt  DateTime   @default(now())
+
+  @@index([createdAt])
+  @@index([level, createdAt])
+  @@index([actorId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SETTINGS — глобальные переменные сайта (key/value)
+// ─────────────────────────────────────────────────────────────
+
+model Setting {
+  key         String   @id // "site.name", "server.ip", "maintenance.enabled"
+  value       Json
+  description String   @default("")
+  updatedById String?
+  updatedBy   User?    @relation("SettingEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt   DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+//  NOTIFICATIONS / ACTIVITY
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String           @db.Text @default("")
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // "race.changed", "login", "reward", "ban"
+  message   String
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

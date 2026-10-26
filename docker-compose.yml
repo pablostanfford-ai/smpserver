@@ -1,0 +1,113 @@
+# AetherSMP — локальный и production-стек.
+#   docker compose up -d --build
+#   docker compose exec api npx prisma migrate deploy
+#   docker compose exec api npm run db:seed
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: aether-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aether
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: aether-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      API_PORT: 4000
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL}
+      SEED_OWNER_USERNAME: ${SEED_OWNER_USERNAME}
+      SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD}
+      SEED_OWNER_MC_NAME: ${SEED_OWNER_MC_NAME}
+      MOJANG_TIMEOUT_MS: ${MOJANG_TIMEOUT_MS}
+      ALLOW_UNVERIFIED_MC: ${ALLOW_UNVERIFIED_MC}
+      RCON_ENABLED: ${RCON_ENABLED}
+      RCON_HOST: ${RCON_HOST}
+      RCON_PORT: ${RCON_PORT}
+      RCON_PASSWORD: ${RCON_PASSWORD}
+      RCON_RACE_COMMAND: ${RCON_RACE_COMMAND}
+      RCON_UNRACE_COMMAND: ${RCON_UNRACE_COMMAND}
+      RCON_RANK_COMMAND: ${RCON_RANK_COMMAND}
+      IP_HASH_SALT: ${IP_HASH_SALT}
+    ports:
+      - "127.0.0.1:4000:4000"
+    networks:
+      - aether
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        API_INTERNAL_URL: http://api:4000
+    container_name: aether-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:4000
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - aether
+
+  # Reverse-proxy с HTTPS. Включается профилем: docker compose --profile proxy up -d
+  caddy:
+    image: caddy:2-alpine
+    container_name: aether-caddy
+    restart: unless-stopped
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+    networks:
+      - aether
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  aether:
+    driver: bridge

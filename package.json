@@ -1,0 +1,28 @@
+{
+  "name": "aethersmp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AetherSMP — сайт Minecraft SMP сервера: расы, личный кабинет, супер-админка",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w @aethersmp/api\" \"npm run dev -w @aethersmp/web\"",
+    "build": "npm run build -w @aethersmp/api && npm run build -w @aethersmp/web",
+    "start": "concurrently -n api,web -c cyan,magenta \"npm run start -w @aethersmp/api\" \"npm run start -w @aethersmp/web\"",
+    "db:generate": "npm run db:generate -w @aethersmp/api",
+    "db:push": "npm run db:push -w @aethersmp/api",
+    "db:migrate": "npm run db:migrate -w @aethersmp/api",
+    "db:seed": "npm run db:seed -w @aethersmp/api",
+    "db:studio": "npm run db:studio -w @aethersmp/api",
+    "lint": "npm run lint -w @aethersmp/api && npm run lint -w @aethersmp/web",
+    "typecheck": "npm run typecheck -w @aethersmp/api && npm run typecheck -w @aethersmp/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}
